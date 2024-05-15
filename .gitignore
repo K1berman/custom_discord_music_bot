@@ -1,0 +1,10 @@
+.env
+venv/
+.coverage
+*.py,cover
+.cache/
+__pycache__/
+*.py[cod]
+.idea/
+ffmpeg-master-latest-win64-gpl
+exit.mp3
