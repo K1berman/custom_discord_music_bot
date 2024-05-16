@@ -1,5 +1,6 @@
 from pytube import YouTube
 
+
 def get_mp3_from_youtube(url: str) -> str | None:
     try:
         video = YouTube(url = url)

@@ -17,6 +17,8 @@ bot.add_command(comands_main.resume)
 bot.add_command(comands_main.info)
 bot.add_command(comands_prostate.prostate)
 bot.add_command(comands_prostate.prostate_list)
+bot.add_command(comands_prostate.add_prostate)
+bot.add_command(comands_prostate.del_prostate)
 
 bot.run(token=DISCORD_TOKEN)
 

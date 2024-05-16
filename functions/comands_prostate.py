@@ -4,18 +4,28 @@ from discord.ext import commands
 import asyncio
 import discord
 from random import randint
-from os import sep
+from os import sep,listdir,remove
 
-track_list = {"1": "Александр Пупукин - Пиписька Негра",
-              "2": "Brazil Pupuki - Pipiska Negra(extended)",
-              "3": "Medieval Puki - King of the puki",
-              "4": "Chinese Ballads - Vlad's story",
-              "5": "Mary Dick - Pipiska Negra(soul)",
-              "6": "DJ Prostate - Puki Pupuki"
-              }
+
+def get_prostate_list():
+    pupuki_list = {}
+    files = listdir(f"music{sep}prostate{sep}")
+    id = 1
+    for file in files:
+        pupuki_list[str(id)] = file[:-4]
+        id += 1
+    return pupuki_list
+
 
 @commands.command(brief="Воспроизводит аудио из !prostate_list")
-async def prostate(ctx, id, mode = None):
+async def prostate(ctx, id = None, mode = None):
+    track_list = get_prostate_list()
+    if id is None:
+        await ctx.channel.send("Неверно указан id, используй !prostate_list")
+
+    if ctx.author.voice is None:
+        await ctx.channel.send("Вы должны быть в голосовом канале.")
+        return
 
     if id == "random":
         id = str(randint(1, len(track_list)))
@@ -63,11 +73,50 @@ async def prostate(ctx, id, mode = None):
         await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")\
 
 
-@commands.command(brief="Воспроизводит аудио из !prostate_list")
+@commands.command(brief="prostate_list")
 async def prostate_list(ctx):
+    track_list = get_prostate_list()
     list = []
     for i in range(1, len(track_list)+ 1):
         data = f"{i} - {track_list.get(str(i))}"
         list.append(data)
     prostate_list = "\n".join(list)
     await ctx.channel.send(f"```{prostate_list}```")
+
+
+@commands.command(brief="prostate_list")
+async def add_prostate(ctx):
+
+    data = ctx.message.attachments
+    if not data:
+        await ctx.channel.send(f"Файл не прикреплен!")
+        return
+
+    for attach in data:
+        if not ".mp3" in attach.filename:
+            await ctx.channel.send(f"Неверный формат файла - {attach.filename}")
+            continue
+        await attach.save(f"music{sep}prostate{sep}{attach.filename}")
+        await ctx.channel.send(f"Добавлен файл - {attach}\nid треков поменялись!")
+
+
+@commands.command(brief="prostate_list")
+async def del_prostate(ctx, id = None):
+    if id is None:
+        await ctx.channel.send("Неверно указан id, используй !prostate_list")
+        return
+
+    track_list = get_prostate_list()
+
+    if (int(id) < 1 or int(id) > len(track_list)):
+        await ctx.channel.send("Неверно указан id, используй !prostate_list")
+        return
+
+    file = f"{track_list.get(id)}.mp3"
+    remove(f"music{sep}prostate{sep}{file}")
+    await ctx.channel.send("Трек удален!")
+
+
+
+
+
