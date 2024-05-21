@@ -20,11 +20,11 @@ async def play_next_track(ctx):
     if len(queue) > 0:
         next_track = queue.pop(0)
         try:
-            audio_source = discord.FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=f"{next_track}.mp3")
+            audio_source = discord.FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=f"{next_track}")
             voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
             voice_client.play(audio_source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_track(ctx), ctx.bot.loop))
             await ctx.channel.send(f"Сейчас играет!\n```{next_track}```")
-            await del_after_play(voice_client, f"{next_track}.mp3")
+            await del_after_play(voice_client, f"{next_track}")
         except Exception as e:
             await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")
     elif len(queue_prostate) > 0:
@@ -116,7 +116,7 @@ async def play_file(ctx):
 
 
     for attach in data:
-        if not attach.filename.endswith(".mp3") or attach.filename.endswith(".ogg") or attach.filename.endswith(".wav"):
+        if not attach.filename.endswith(".mp3") and not attach.filename.endswith(".ogg") and not attach.filename.endswith(".wav"):
             await ctx.channel.send(f"Неверный формат файла - {attach.filename}")
             continue
 
@@ -125,13 +125,14 @@ async def play_file(ctx):
             await attach.save(file_path)
             if voice_client.is_playing():
                 await ctx.channel.send("Трек добавлен в очередь!")
-                queue.append(attach.filename[:-4])
+                queue.append(attach.filename)
                 continue
-            audio_source = discord.FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=file_path)
-            await ctx.channel.send(f"Сейчас играет!\n```{attach.filename}```")
-            voice_client.play(audio_source)
+            else:
+                audio_source = discord.FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=file_path)
+                await ctx.channel.send(f"Сейчас играет!\n```{attach.filename}```")
+                voice_client.play(audio_source)
 
-            await del_after_play(voice_client, file_path)
+                await del_after_play(voice_client, file_path)
 
 
         except Exception as e:
