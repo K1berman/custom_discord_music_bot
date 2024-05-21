@@ -5,7 +5,7 @@ import asyncio
 import discord
 from random import randint
 from os import sep,listdir,remove
-
+from .comands_main import queue_prostate, play_next_track
 
 def get_prostate_list():
     pupuki_list = {}
@@ -59,19 +59,22 @@ async def prostate(ctx, id = None, mode = None):
         await voice_client.move_to(voice_channel)
         if voice_client.is_playing():
             await ctx.channel.send(f"Трек добавлен в очередь!")
-            while voice_client.is_playing():
-                await asyncio.sleep(1)
+            queue_prostate.append(track_list.get(id))
+            return
 
-    voice_client.stop()
 
     try:
         audio_source = FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=f"music{sep}prostate{sep}{track_list.get(id)}.mp3")
         await ctx.channel.send(f"Сейчас играет!\n```{track_list.get(id)}```")
         voice_client.play(audio_source)
+        while voice_client.is_playing():
+            await asyncio.sleep(1)
 
     except Exception as e:
         await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")\
 
+    if not voice_client.is_playing():
+        await play_next_track(ctx)
 
 @commands.command(brief="prostate_list")
 async def prostate_list(ctx):
