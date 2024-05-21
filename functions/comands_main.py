@@ -75,7 +75,7 @@ async def play(ctx, url = None):
         await voice_client.move_to(voice_channel)
         if voice_client.is_playing():
             await ctx.channel.send(f"Трек добавлен в очередь!")
-            queue.append(title)
+            queue.append(file_name)
             return
 
     voice_client.stop()
