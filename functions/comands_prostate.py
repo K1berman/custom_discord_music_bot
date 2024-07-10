@@ -1,3 +1,5 @@
+import random
+
 from discord import FFmpegPCMAudio
 from config import PATH_TO_FFMPEG
 from discord.ext import commands
@@ -5,33 +7,44 @@ import asyncio
 import discord
 from random import randint
 from os import sep,listdir,remove
-from .comands_main import queue_prostate, play_next_track
+from .comands_main import is_connected_to_channel, guild_nonestop_status, play_audio
 
 def get_prostate_list():
     pupuki_list = {}
     files = listdir(f"music{sep}prostate{sep}")
     id = 1
     for file in files:
-        pupuki_list[str(id)] = file[:-4]
+        pupuki_list[str(id)] = file
         id += 1
     return pupuki_list
 
 
 @commands.command(brief="Воспроизводит аудио из !prostate_list")
-async def prostate(ctx, id = None, mode = None):
-    track_list = get_prostate_list()
-    if id is None:
-        await ctx.channel.send("Неверно указан id, используй !prostate_list")
+async def prostate(ctx, *args):
 
-    if ctx.author.voice is None:
+    track_list = get_prostate_list()
+
+    input_data: list = list(args)
+    nonestop: str = None
+
+    guild_nonestop_status[ctx.guild.id] = "play"
+
+    if not is_connected_to_channel(ctx):
         await ctx.channel.send("Вы должны быть в голосовом канале.")
         return
 
-    if id == "random":
-        id = str(randint(1, len(track_list)))
+    if "nonestop" in input_data:
+        nonestop = "nonestop"
+        input_data.remove("nonestop")
+
+    if "random" in input_data:
+        url = str(randint(1, len(track_list)))
+        input_data.remove("random")
+    else:
+        url = " ".join(input_data)
 
     try:
-        id = int(id)
+        id = int(url)
 
     except ValueError:
         await ctx.channel.send("Неверно указан id, используй !prostate_list")
@@ -43,38 +56,14 @@ async def prostate(ctx, id = None, mode = None):
 
     id = str(id)
 
-    if mode == "nonestop":
-        pass
-
     voice_channel = ctx.author.voice.channel
     if voice_channel is None:
         await ctx.channel.send("Вы должны быть в голосовом канале.")
         return
 
-    voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
+    file_name = f"music{sep}prostate{sep}{track_list.get(id)}"
 
-    if voice_client is None:
-        voice_client = await voice_channel.connect()
-    else:
-        await voice_client.move_to(voice_channel)
-        if voice_client.is_playing():
-            await ctx.channel.send(f"Трек добавлен в очередь!")
-            queue_prostate.append(track_list.get(id))
-            return
-
-
-    try:
-        audio_source = FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=f"music{sep}prostate{sep}{track_list.get(id)}.mp3")
-        await ctx.channel.send(f"Сейчас играет!\n```{track_list.get(id)}```")
-        voice_client.play(audio_source)
-        while voice_client.is_playing():
-            await asyncio.sleep(1)
-
-    except Exception as e:
-        await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")\
-
-    if not voice_client.is_playing():
-        await play_next_track(ctx)
+    await play_audio(ctx, file_name, nonestop)
 
 @commands.command(brief="prostate_list")
 async def prostate_list(ctx):
@@ -120,6 +109,10 @@ async def del_prostate(ctx, id = None):
     await ctx.channel.send("Трек удален!")
 
 
-
+@commands.command(brief="prostate_list")
+async def gun(ctx):
+    lenth = random.randint(0, 22)
+    await ctx.channel.send(f"У {ctx.author.mention} ствол {lenth} см")
+    return
 
 

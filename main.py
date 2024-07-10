@@ -26,7 +26,7 @@ bot.add_command(comands_prostate.prostate_list)
 bot.add_command(comands_prostate.add_prostate)
 bot.add_command(comands_prostate.del_prostate)
 bot.add_command(comands_main.play_file)
-
+bot.add_command(comands_prostate.gun)
 
 bot.run(token=DISCORD_TOKEN)
 

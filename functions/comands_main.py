@@ -2,13 +2,24 @@ from discord.ext import commands
 from discord import FFmpegPCMAudio
 import discord
 from config import PATH_TO_FFMPEG
-from functions import get_mp3, get_title
+from functions import get_mp3, get_title, finder
 import asyncio
 from os import remove,sep
+import re
+import datetime
 
+guild_queue = {}
+guild_nonestop_status = {}
 
-queue = []
-queue_prostate = []
+def is_connected_to_channel(ctx) -> bool:
+
+    if ctx.author.voice is None:
+        return False
+
+    if ctx.author.voice.channel is None:
+        return False
+
+    return True
 
 async def del_after_play(voice_client, path:str):
     while voice_client.is_playing():
@@ -17,131 +28,125 @@ async def del_after_play(voice_client, path:str):
 
 
 async def play_next_track(ctx):
-    if len(queue) > 0:
-        next_track = queue.pop(0)
-        try:
-            audio_source = discord.FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=f"{next_track}")
-            voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
-            voice_client.play(audio_source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_track(ctx), ctx.bot.loop))
-            await ctx.channel.send(f"Сейчас играет!\n```{next_track}```")
-            await del_after_play(voice_client, f"{next_track}")
-        except Exception as e:
-            await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")
-    elif len(queue_prostate) > 0:
-        next_track = queue_prostate.pop(0)
-        try:
-            audio_source = discord.FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=f"music{sep}prostate{sep}{next_track}.mp3")
-            voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
-            voice_client.play(audio_source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_track(ctx), ctx.bot.loop))
-            await ctx.channel.send(f"Сейчас играет!\n```{next_track}```")
-        except Exception as e:
-            await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")
+    if guild_queue.get(ctx.guild.id) and len(guild_queue.get(ctx.guild.id)) > 0:
+        next_track = guild_queue.get(ctx.guild.id).pop(0)
+        await play_audio(ctx, next_track)
     else:
         voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
         voice_client.stop()
 
 
-
-@commands.command(brief="Воспроизводит аудио из ссылки")
-async def play(ctx, url = None):
-
-    if ctx.author.voice is None:
-        await ctx.channel.send("Вы должны быть в голосовом канале.")
-        return
-
-    link = url
-
-    if link is None:
-        await ctx.channel.send("Ссылка не найдена!")
-        return
-
-    voice_channel = ctx.author.voice.channel
-    if voice_channel is None:
-        await ctx.channel.send("Вы должны быть в голосовом канале.")
-        return
-
-    voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
-
-    title = get_title.get_mp3_from_youtube(url=url)
-    file_name = f"{title}.mp3"
-    if not get_mp3.get_mp3_from_youtube(url=link, full_file_name=file_name):
-        await ctx.channel.send(f"Ссылка указана не верно!")
-        return
-
-
-    if voice_client is None:
-        voice_client = await voice_channel.connect()
-    else:
-        await voice_client.move_to(voice_channel)
-        if voice_client.is_playing():
-            await ctx.channel.send(f"Трек добавлен в очередь!")
-            queue.append(file_name)
-            return
-
-    voice_client.stop()
-
+async def player(ctx, voice_client: str, file_name: str):
     try:
         audio_source = FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=file_name)
-        await ctx.channel.send(f"Сейчас играет!\n```{title}```")
         voice_client.play(audio_source)
-        await del_after_play(voice_client, file_name)
 
     except Exception as e:
         await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")
 
-    if not voice_client.is_playing():
-        await play_next_track(ctx)
 
-@commands.command(brief="prostate_list")
-async def play_file(ctx):
-    if ctx.author.voice is None:
-        await ctx.channel.send("Вы должны быть в голосовом канале.")
-        return
-
-    data = ctx.message.attachments
-    if not data:
-        await ctx.channel.send("Файл не прикреплен!")
-        return
-
-    voice_channel = ctx.author.voice.channel
-    if voice_channel is None:
-        await ctx.channel.send("Вы должны быть в голосовом канале.")
-        return
+async def play_audio(ctx, file_name: str, nonestop: str = None) -> None:
 
     voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
+
     if voice_client is None:
-        voice_client = await voice_channel.connect()
+        voice_client = await ctx.author.voice.channel.connect()
     else:
-        await voice_client.move_to(voice_channel)
+        await voice_client.move_to(ctx.author.voice.channel)
+        if voice_client.is_playing():
+            await ctx.channel.send(f"Трек добавлен в очередь!")
 
+            if not guild_queue.get(ctx.guild.id):
+                guild_queue[ctx.guild.id] = []
 
-    for attach in data:
-        if not attach.filename.endswith(".mp3") and not attach.filename.endswith(".ogg") and not attach.filename.endswith(".wav"):
-            await ctx.channel.send(f"Неверный формат файла - {attach.filename}")
-            continue
+            guild_queue.get(ctx.guild.id).append(file_name)
 
-        try:
-            file_path = f"{attach.filename}"
-            await attach.save(file_path)
-            if voice_client.is_playing():
-                await ctx.channel.send("Трек добавлен в очередь!")
-                queue.append(attach.filename)
-                continue
-            else:
-                audio_source = discord.FFmpegPCMAudio(executable=PATH_TO_FFMPEG, source=file_path)
-                await ctx.channel.send(f"Сейчас играет!\n```{attach.filename}```")
-                voice_client.play(audio_source)
+            return
 
-                await del_after_play(voice_client, file_path)
+    voice_client.stop()
 
+    await ctx.channel.send(f"Сейчас играет!\n```{file_name[5:-4]}\n```")
 
-        except Exception as e:
-            await ctx.channel.send(f"Произошла ошибка при воспроизведении аудио: {e}")
+    if nonestop == "nonestop":
+        while guild_nonestop_status.get(ctx.guild.id) == "play":
+            await player(ctx, voice_client, file_name)
+            while voice_client.is_playing():
+                await asyncio.sleep(1)
+    else:
+        await player(ctx, voice_client, file_name)
+
+    await del_after_play(voice_client, file_name)
 
     if not voice_client.is_playing():
         await play_next_track(ctx)
 
-@commands.command(brief="Ставит на паузу")
+
+
+@commands.command(brief="Воспроизводит аудио из ссылки")
+async def play(ctx, *args):
+
+    input_data: list = list(args)
+    nonestop: str = None
+
+    guild_nonestop_status[ctx.guild.id] = "play"
+
+    if not is_connected_to_channel(ctx):
+        await ctx.channel.send("Вы должны быть в голосовом канале.")
+        return
+
+    if "nonestop" in input_data:
+        nonestop = "nonestop"
+        input_data.remove("nonestop")
+
+    files = ctx.message.attachments
+
+    url = " ".join(input_data)
+
+
+    if files:
+        for attach in files:
+            if not attach.filename.endswith((".mp3", ".ogg", ".wav", ".mp4")):
+                await ctx.channel.send(f"Неверный формат файла - {attach.filename}")
+                return
+
+            file_name: str = attach.filename
+
+            if file_name.endswith(".mp4"):
+                file_name.replace(".mp4", ".mp3")
+
+            file_name = f"%s%s" % (datetime.datetime.now().strftime("%M_%S"), file_name)
+            print(file_name)
+            await attach.save(file_name)
+            break
+
+    elif url:
+        if "https://www.youtube.com/watch?v=" in url:
+            pass
+        else:
+            url = finder.get_link_by_trackname(url)
+
+        title = get_title.get_mp3_from_youtube(url=url)
+        print(title)
+        file_name = f"{datetime.datetime.now().strftime("%M_%S")}{title}.mp3"
+        print(url)
+        if not get_mp3.get_mp3_from_youtube(url=url, full_file_name=file_name):
+            await ctx.channel.send(f"Трек не найден!")
+            return
+
+    else:
+        await ctx.channel.send(f"Укажите ссылку или прикрепите файл!")
+        return
+
+    await play_audio(ctx, file_name, nonestop)
+
+
+@commands.command(brief="Воспроизводит приклепленный файл")
+async def play_file(ctx):
+    await ctx.channel.send(f"Теперь !play так же работает с файлами")
+    await play(ctx)
+
+
+@commands.command(brief="Ставит трек на паузу")
 async def pause(ctx):
 
     if ctx.author.voice is None:
@@ -165,7 +170,7 @@ async def pause(ctx):
     voice_client.pause()
 
 
-@commands.command(brief="Убирает с паузы")
+@commands.command(brief="Убирает трек с паузы")
 async def resume(ctx):
     voice_channel = ctx.author.voice.channel
     if voice_channel is None:
@@ -184,7 +189,7 @@ async def resume(ctx):
     voice_client.resume()
 
 
-@commands.command(brief="Пропускает аудио")
+@commands.command(brief="Пропускает трек")
 async def skip(ctx):
     voice_channel = ctx.author.voice.channel
     if voice_channel is None:
@@ -201,6 +206,7 @@ async def skip(ctx):
         return
 
     await ctx.channel.send("Пропускаю трек!")
+    guild_nonestop_status[ctx.guild.id] = "stop"
     voice_client.stop()
 
 
