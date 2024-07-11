@@ -4,7 +4,7 @@ import json
 
 def get_link_by_trackname(track_name: str) -> str:
 
-    url = f"https://www.youtube.com/results?search_query=%{track_name}"
+    url = f"https://www.youtube.com/results?search_query={track_name}"
 
     response = requests.get(url)
     if response.status_code != 200:

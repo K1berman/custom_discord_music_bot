@@ -2,3 +2,6 @@ discord~=2.3.2
 pytube~=15.0.0
 python-dotenv==1.0.1
 PyNaCl==1.5.0
+requests
+bs4
+

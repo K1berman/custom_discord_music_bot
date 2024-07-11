@@ -100,7 +100,7 @@ async def play(ctx, *args):
 
     files = ctx.message.attachments
 
-    url = " ".join(input_data)
+    url = "+".join(input_data)
 
 
     if files:
@@ -120,15 +120,16 @@ async def play(ctx, *args):
             break
 
     elif url:
-        if "https://www.youtube.com/watch?v=" in url:
+        if "youtu" in url:
             pass
         else:
             url = finder.get_link_by_trackname(url)
 
+        print(url)
         title = get_title.get_mp3_from_youtube(url=url)
         print(title)
-        file_name = f"{datetime.datetime.now().strftime("%M_%S")}{title}.mp3"
         print(url)
+        file_name = f"{datetime.datetime.now().strftime("%M_%S")}{title}.mp3"
         if not get_mp3.get_mp3_from_youtube(url=url, full_file_name=file_name):
             await ctx.channel.send(f"Трек не найден!")
             return

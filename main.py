@@ -13,7 +13,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    await events.is_empty_channel(member, before, after)
+    await events.is_empty_channel(ctx, member, before, after)
 
 
 bot.add_command(comands_main.play)
