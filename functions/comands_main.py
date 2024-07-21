@@ -33,7 +33,8 @@ async def play_next_track(ctx):
         await play_audio(ctx, next_track)
     else:
         voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
-        voice_client.stop()
+        if voice_client and voice_client.is_playing():
+            voice_client.stop()
 
 
 async def player(ctx, voice_client: str, file_name: str):
@@ -70,7 +71,7 @@ async def play_audio(ctx, file_name: str, nonestop: str = None) -> None:
     if nonestop == "nonestop":
         while guild_nonestop_status.get(ctx.guild.id) == "play":
             await player(ctx, voice_client, file_name)
-            while voice_client.is_playing():
+            while voice_client.is_playing() or guild_nonestop_status.get(ctx.guild.id) == "pause":
                 await asyncio.sleep(1)
     else:
         await player(ctx, voice_client, file_name)
@@ -129,7 +130,7 @@ async def play(ctx, *args):
         title = get_title.get_mp3_from_youtube(url=url)
         print(title)
         print(url)
-        file_name = f"{datetime.datetime.now().strftime("%M_%S")}{title}.mp3"
+        file_name = f"{datetime.datetime.now().strftime('%M_%S')}{title}.mp3"
         if not get_mp3.get_mp3_from_youtube(url=url, full_file_name=file_name):
             await ctx.channel.send(f"Трек не найден!")
             return
@@ -150,59 +151,47 @@ async def play_file(ctx):
 @commands.command(brief="Ставит трек на паузу")
 async def pause(ctx):
 
-    if ctx.author.voice is None:
+    if not is_connected_to_channel(ctx):
         await ctx.channel.send("Вы должны быть в голосовом канале.")
         return
 
-    voice_channel = ctx.author.voice.channel
-    if voice_channel is None:
-        await ctx.channel.send("Вы должны быть в голосовом канале, чтобы управлять ботом!")
-        return
-
     voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
-    if voice_client is None:
-        await ctx.channel.send("Бот ничего не воспроизводит!")
-        return
 
     if not voice_client.is_playing():
         await ctx.channel.send("Бот ничего не воспроизводит!")
         return
 
+    guild_nonestop_status[ctx.guild.id] = "pause"
     voice_client.pause()
 
 
 @commands.command(brief="Убирает трек с паузы")
 async def resume(ctx):
-    voice_channel = ctx.author.voice.channel
-    if voice_channel is None:
-        await ctx.channel.send("Вы должны быть в голосовом канале, чтобы управлять ботом!")
+
+    if not is_connected_to_channel(ctx):
+        await ctx.channel.send("Вы должны быть в голосовом канале.")
         return
 
     voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
-    if voice_client is None:
-        await ctx.channel.send("Бот ничего не воспроизводит!")
-        return
 
     if voice_client.is_playing():
         await ctx.channel.send("Бот уже воспроизводит аудио!")
         return
 
+    guild_nonestop_status[ctx.guild.id] = "play"
     voice_client.resume()
 
 
 @commands.command(brief="Пропускает трек")
 async def skip(ctx):
-    voice_channel = ctx.author.voice.channel
-    if voice_channel is None:
-        await ctx.channel.send("Вы должны быть в голосовом канале, чтобы управлять ботом!")
+
+    if not is_connected_to_channel(ctx):
+        await ctx.channel.send("Вы должны быть в голосовом канале.")
         return
 
     voice_client = discord.utils.get(ctx.bot.voice_clients, guild=ctx.guild)
-    if voice_client is None:
-        await ctx.channel.send("Бот ничего не воспроизводит!")
-        return
 
-    if not voice_client.is_playing():
+    if not voice_client.is_playing() and not (guild_nonestop_status.get(ctx.guild.id) == "pause"):
         await ctx.channel.send("Бот ничего не воспроизводит!")
         return
 

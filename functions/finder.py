@@ -36,4 +36,4 @@ def get_link_by_trackname(track_name: str) -> str:
     except Exception:
         return None
 
-    return f"https://www.youtube.com{link[:link.find("&")]}"
+    return f"https://www.youtube.com{link[:link.find('&')]}"
