@@ -15,6 +15,9 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def on_voice_state_update(member, before, after):
     await events.is_empty_channel(member, before, after)
 
+@bot.event
+async def is_kicked(member, before, after):
+    await events.is_kicked(member, before, after)
 
 bot.add_command(comands_main.play)
 bot.add_command(comands_main.skip)
